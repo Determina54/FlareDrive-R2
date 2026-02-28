@@ -43,8 +43,16 @@ export async function onRequestGet(context) {
       }
       
       const client = new S3Client(storageConfig.accessKey, storageConfig.secretKey);
-      objList = await client.listBucket(storageConfig.endpoint, storageConfig.bucketName, prefix || "", "/");
-      console.log("[Children API] S3 list result", objList);
+      try {
+        objList = await client.listBucket(storageConfig.endpoint, storageConfig.bucketName, prefix || "", "/");
+        console.log("[Children API] S3 list result", objList);
+      } catch (error) {
+        console.error("[Children API] S3 list error:", error);
+        return jsonResponse({
+          error: "Failed to list S3 bucket",
+          details: error?.toString()
+        }, 500);
+      }
     } else {
       // 使用 Cloudflare R2
       console.log("[Children API] Using Cloudflare R2");
@@ -73,6 +81,7 @@ export async function onRequestGet(context) {
       folders = folders.filter((folder) => folder !== "_$flaredrive$/");
 
     // 根据用户权限过滤内容
+    // 只有当明确设置了权限才进行过滤，否则显示所有内容
     if (!authResult.isGuest) {
       // 已登录用户：根据用户权限过滤
       const headers = new Headers(context.request.headers);
@@ -91,23 +100,28 @@ export async function onRequestGet(context) {
             // 合并用户权限和游客权限
             const combinedPermissions = [...allow, ...allow_guest];
 
-            // 过滤文件：显示用户有权限的文件 + 游客可访问的文件
-            objKeys = objKeys.filter(file => {
-              for (var a of combinedPermissions) {
-                if (a == "*") return true;
-                if (file.key.startsWith(a)) return true;
-              }
-              return false;
-            });
+            // 只有在有明确权限限制的情况下才过滤
+            if (combinedPermissions.length > 0) {
+              // 过滤文件：显示用户有权限的文件 + 游客可访问的文件
+              objKeys = objKeys.filter(file => {
+                for (var a of combinedPermissions) {
+                  if (a == "*") return true;
+                  if (file.key.startsWith(a)) return true;
+                }
+                // 根目录文件（不包含/的）始终显示
+                if (!file.key.includes("/")) return true;
+                return false;
+              });
 
-            // 过滤文件夹：显示用户有权限的文件夹 + 游客可访问的文件夹
-            folders = folders.filter(folder => {
-              for (var a of combinedPermissions) {
-                if (a == "*") return true;
-                if (folder.startsWith(a)) return true;
-              }
-              return false;
-            });
+              // 过滤文件夹：显示用户有权限的文件夹 + 游客可访问的文件夹
+              folders = folders.filter(folder => {
+                for (var a of combinedPermissions) {
+                  if (a == "*") return true;
+                  if (folder.startsWith(a)) return true;
+                }
+                return false;
+              });
+            }
           }
         }
       }
@@ -117,24 +131,30 @@ export async function onRequestGet(context) {
       if (guestEnv) {
         const allow_guest = guestEnv.split(",");
 
-        // 过滤文件：只显示游客有权限的文件
-        objKeys = objKeys.filter(file => {
-          for (var aa of allow_guest) {
-            if (aa == "*") return true;
-            if (file.key.startsWith(aa)) return true;
-          }
-          return false;
-        });
+        // 只有在有明确权限限制的情况下才过滤
+        if (allow_guest.length > 0) {
+          // 过滤文件：只显示游客有权限的文件
+          objKeys = objKeys.filter(file => {
+            for (var aa of allow_guest) {
+              if (aa == "*") return true;
+              if (file.key.startsWith(aa)) return true;
+            }
+            // 根目录文件（不包含/的）始终显示
+            if (!file.key.includes("/")) return true;
+            return false;
+          });
 
-        // 过滤文件夹：只显示游客有权限的文件夹
-        folders = folders.filter(folder => {
-          for (var aa of allow_guest) {
-            if (aa == "*") return true;
-            if (folder.startsWith(aa)) return true;
-          }
-          return false;
-        });
+          // 过滤文件夹：只显示游客有权限的文件夹
+          folders = folders.filter(folder => {
+            for (var aa of allow_guest) {
+              if (aa == "*") return true;
+              if (folder.startsWith(aa)) return true;
+            }
+            return false;
+          });
+        }
       }
+      // 如果没有设置任何游客权限，允许访问所有文件（不过滤）
     }
 
     return jsonResponse({

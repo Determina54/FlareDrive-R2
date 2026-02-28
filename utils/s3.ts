@@ -145,34 +145,45 @@ export class S3Client {
       const xmlText = await response.text();
       
       console.log("[S3] Response status:", response.status);
-      console.log("[S3] Response text:", xmlText.substring(0, 500));
+      console.log("[S3] Full response text:", xmlText);
       
       if (response.status !== 200) {
-        console.error("[S3] Error response:", xmlText);
-        return { objects: [], delimitedPrefixes: [] };
+        console.error("[S3] Error response:", response.status, xmlText);
+        throw new Error(`S3 ListBucket failed with status ${response.status}: ${xmlText}`);
       }
       
       // 简单的 XML 解析
       const objects: any[] = [];
       const delimitedPrefixes: string[] = [];
       
-      // 解析 Contents（文件）
-      const contentsRegex = /<Contents>[\s\S]*?<Key>([\s\S]*?)<\/Key>[\s\S]*?<Size>([\d]+)<\/Size>[\s\S]*?<LastModified>([\s\S]*?)<\/LastModified>[\s\S]*?<\/Contents>/g;
+      // 解析 Contents（文件） - 不依赖字段顺序
+      const contentsRegex = /<Contents>[\s\S]*?<\/Contents>/g;
       let match;
+      
       while ((match = contentsRegex.exec(xmlText)) !== null) {
-        objects.push({
-          key: match[1],
-          size: parseInt(match[2]),
-          uploaded: new Date(match[3]),
-          // 与 R2 API 兼容，添加空的元数据对象
-          httpMetadata: {
-            contentType: "application/octet-stream",
-          },
-          customMetadata: {},
-        });
+        const contentBlock = match[0];
+        
+        // 从内容块中提取各个字段
+        const keyMatch = /<Key>([\s\S]*?)<\/Key>/.exec(contentBlock);
+        const sizeMatch = /<Size>([\d]+)<\/Size>/.exec(contentBlock);
+        const lastModifiedMatch = /<LastModified>([\s\S]*?)<\/LastModified>/.exec(contentBlock);
+        
+        if (keyMatch && sizeMatch) {
+          objects.push({
+            key: keyMatch[1],
+            size: parseInt(sizeMatch[1]),
+            uploaded: lastModifiedMatch ? new Date(lastModifiedMatch[1]) : new Date(),
+            // 与 R2 API 兼容，添加空的元数据对象
+            httpMetadata: {
+              contentType: "application/octet-stream",
+            },
+            customMetadata: {},
+          });
+        }
       }
       
       console.log("[S3] Parsed objects:", objects.length);
+      console.log("[S3] Sample objects:", objects.slice(0, 3));
       
       // 解析 CommonPrefixes（文件夹）
       const prefixRegex = /<CommonPrefixes>[\s\S]*?<Prefix>([\s\S]*?)<\/Prefix>[\s\S]*?<\/CommonPrefixes>/g;
@@ -180,7 +191,7 @@ export class S3Client {
         delimitedPrefixes.push(match[1]);
       }
       
-      console.log("[S3] Parsed prefixes:", delimitedPrefixes.length);
+      console.log("[S3] Parsed prefixes:", delimitedPrefixes.length, delimitedPrefixes);
       
       return {
         objects,
