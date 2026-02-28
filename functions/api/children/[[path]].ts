@@ -1,11 +1,16 @@
-import { notFound, parseBucketPath } from "@/utils/bucket";
+import { notFound, parseBucketPath, getStorageConfig } from "@/utils/bucket";
 import { get_list_auth_status } from "@/utils/auth";
+import { S3Client } from "@/utils/s3";
 
 export async function onRequestGet(context) {
   try {
     const [bucket, path] = parseBucketPath(context);
     const prefix = path && `${path}/`;
-    if (!bucket || prefix.startsWith("_$flaredrive$/")) return notFound();
+    const storageConfig = getStorageConfig(context);
+    
+    if (!storageConfig.isCustomS3 && (!bucket || prefix.startsWith("_$flaredrive$/"))) {
+      return notFound();
+    }
 
     // 检查文件列表访问权限
     const authResult = get_list_auth_status(context, path || "");
@@ -23,11 +28,20 @@ export async function onRequestGet(context) {
       });
     }
 
-    const objList = await bucket.list({
-      prefix,
-      delimiter: "/",
-      include: ["httpMetadata", "customMetadata"],
-    });
+    let objList;
+    
+    if (storageConfig.isCustomS3) {
+      // 使用第三方 S3
+      const client = new S3Client(storageConfig.accessKey, storageConfig.secretKey);
+      objList = await client.listBucket(storageConfig.endpoint, storageConfig.bucketName, prefix, "/");
+    } else {
+      // 使用 Cloudflare R2
+      objList = await bucket.list({
+        prefix,
+        delimiter: "/",
+        include: ["httpMetadata", "customMetadata"],
+      });
+    }
 
     let objKeys = objList.objects
       .filter((obj) => !obj.key.endsWith("/_$folder$"))

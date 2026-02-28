@@ -2,6 +2,28 @@ export function notFound() {
   return new Response("Not found", { status: 404 });
 }
 
+export function getStorageConfig(context) {
+  const { env } = context;
+  const isCustomS3 = env.CustomS3 === "true";
+  
+  if (isCustomS3) {
+    return {
+      isCustomS3: true,
+      endpoint: env.S3_ENDPOINT,
+      accessKey: env.S3_ACCESS_KEY,
+      secretKey: env.S3_SECRET_KEY,
+      bucketName: env.S3_BUCKET_NAME,
+    };
+  }
+  
+  return {
+    isCustomS3: false,
+    accountId: env.CF_ACCOUNT_ID,
+    accessKey: env.AWS_ACCESS_KEY_ID,
+    secretKey: env.AWS_SECRET_ACCESS_KEY,
+  };
+}
+
 export function parseBucketPath(context): [any, string] {
   const { request, env, params } = context;
   const url = new URL(request.url);

@@ -101,4 +101,40 @@ export class S3Client {
     init.headers = headers;
     return fetch(input, init);
   }
+
+  public async listBucket(endpoint: string, bucketName: string, prefix?: string, delimiter?: string) {
+    const params = new URLSearchParams();
+    if (prefix) params.append("prefix", prefix);
+    if (delimiter) params.append("delimiter", delimiter);
+    
+    const url = `${endpoint}/${bucketName}/${params.toString() ? "?" + params.toString() : ""}`;
+    const response = await this.s3_fetch(url);
+    const xmlText = await response.text();
+    
+    // 简单的 XML 解析
+    const objects: any[] = [];
+    const delimitedPrefixes: string[] = [];
+    
+    // 解析 Contents（文件）
+    const contentsRegex = /<Contents>[\s\S]*?<Key>([\s\S]*?)<\/Key>[\s\S]*?<Size>(\d+)<\/Size>[\s\S]*?<LastModified>([\s\S]*?)<\/LastModified>[\s\S]*?<\/Contents>/g;
+    let match;
+    while ((match = contentsRegex.exec(xmlText)) !== null) {
+      objects.push({
+        key: match[1],
+        size: parseInt(match[2]),
+        uploaded: new Date(match[3]),
+      });
+    }
+    
+    // 解析 CommonPrefixes（文件夹）
+    const prefixRegex = /<CommonPrefixes>[\s\S]*?<Prefix>([\s\S]*?)<\/Prefix>[\s\S]*?<\/CommonPrefixes>/g;
+    while ((match = prefixRegex.exec(xmlText)) !== null) {
+      delimitedPrefixes.push(match[1]);
+    }
+    
+    return {
+      objects,
+      delimitedPrefixes,
+    };
+  }
 }

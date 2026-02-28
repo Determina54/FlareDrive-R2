@@ -1,4 +1,4 @@
-import { notFound, parseBucketPath } from "@/utils/bucket";
+import { notFound, parseBucketPath, getStorageConfig } from "@/utils/bucket";
 import {get_auth_status} from "@/utils/auth";
 
 export async function onRequestPostCreateMultipart(context) {
@@ -48,6 +48,19 @@ export async function onRequestPostCompleteMultipart(context) {
 }
 
 export async function onRequestPost(context) {
+  const storageConfig = getStorageConfig(context);
+  
+  // 如果使用第三方 S3，转发到 S3 API
+  if (storageConfig.isCustomS3) {
+    const url = new URL(context.request.url);
+    const s3Url = url.href.replace(/\/api\/write\/items\//, `/api/write/s3/`);
+    return fetch(s3Url, {
+      method: context.request.method,
+      body: context.request.body,
+      headers: context.request.headers,
+    });
+  }
+
   const url = new URL(context.request.url);
   const searchParams = new URLSearchParams(url.search);
 
@@ -89,6 +102,19 @@ export async function onRequestPutMultipart(context) {
 }
 
 export async function onRequestPut(context) {
+  const storageConfig = getStorageConfig(context);
+  
+  // 如果使用第三方 S3，转发到 S3 API
+  if (storageConfig.isCustomS3) {
+    const url = new URL(context.request.url);
+    const s3Url = url.href.replace(/\/api\/write\/items\//, `/api/write/s3/`);
+    return fetch(s3Url, {
+      method: context.request.method,
+      body: context.request.body,
+      headers: context.request.headers,
+    });
+  }
+
   if(!get_auth_status(context)){
     var header = new Headers()
     header.set("WWW-Authenticate",'Basic realm="需要登录"')
@@ -132,6 +158,19 @@ export async function onRequestPut(context) {
 }
 
 export async function onRequestHead(context) {
+  const storageConfig = getStorageConfig(context);
+  
+  // 如果使用第三方 S3，转发到 S3 API
+  if (storageConfig.isCustomS3) {
+    const url = new URL(context.request.url);
+    const s3Url = url.href.replace(/\/api\/write\/items\//, `/api/write/s3/`);
+    return fetch(s3Url, {
+      method: context.request.method,
+      body: context.request.body,
+      headers: context.request.headers,
+    });
+  }
+
   // HEAD请求用于检查写入权限，不实际执行操作
   if(!get_auth_status(context)){
     // 不设置WWW-Authenticate头，避免弹出浏览器登录框
@@ -148,6 +187,19 @@ export async function onRequestHead(context) {
 }
 
 export async function onRequestDelete(context) {
+  const storageConfig = getStorageConfig(context);
+  
+  // 如果使用第三方 S3，转发到 S3 API
+  if (storageConfig.isCustomS3) {
+    const url = new URL(context.request.url);
+    const s3Url = url.href.replace(/\/api\/write\/items\//, `/api/write/s3/`);
+    return fetch(s3Url, {
+      method: context.request.method,
+      body: context.request.body,
+      headers: context.request.headers,
+    });
+  }
+
   if(!get_auth_status(context)){
     var header = new Headers()
     header.set("WWW-Authenticate",'Basic realm="需要登录"')
