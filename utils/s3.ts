@@ -129,8 +129,23 @@ export class S3Client {
 
   public async listBucket(endpoint: string, bucketName: string, prefix?: string, delimiter?: string) {
     const params = new URLSearchParams();
-    if (prefix && prefix.trim()) params.append("prefix", prefix);
-    if (delimiter) params.append("delimiter", delimiter);
+    
+    // 规范化 prefix：确保有 trailing slash（如果有内容）
+    let normalizedPrefix = prefix || "";
+    if (normalizedPrefix && !normalizedPrefix.endsWith("/")) {
+      normalizedPrefix += "/";
+    }
+    // 如果 prefix 是空字符串或者被删除了，不要加 /
+    if (normalizedPrefix === "/") {
+      normalizedPrefix = "";
+    }
+    
+    if (normalizedPrefix && normalizedPrefix.trim()) {
+      params.append("prefix", normalizedPrefix);
+    }
+    if (delimiter) {
+      params.append("delimiter", delimiter);
+    }
     
     // 构造正确的 S3 URL
     const queryString = params.toString();
@@ -138,14 +153,15 @@ export class S3Client {
       ? `${endpoint}/${bucketName}/?${queryString}`
       : `${endpoint}/${bucketName}/`;
     
-    console.log("[S3] Listing bucket:", { endpoint, bucketName, prefix, delimiter, url });
+    console.log("[S3] Listing bucket:", { endpoint, bucketName, originalPrefix: prefix, normalizedPrefix, delimiter, url });
     
     try {
       const response = await this.s3_fetch(url);
       const xmlText = await response.text();
       
       console.log("[S3] Response status:", response.status);
-      console.log("[S3] Full response text:", xmlText);
+      console.log("[S3] Response text length:", xmlText.length);
+      console.log("[S3] First 1000 chars:", xmlText.substring(0, 1000));
       
       if (response.status !== 200) {
         console.error("[S3] Error response:", response.status, xmlText);
@@ -156,13 +172,29 @@ export class S3Client {
       const objects: any[] = [];
       const delimitedPrefixes: string[] = [];
       
+      // 检查 XML 是否包含 Contents 标签
+      if (!xmlText.includes('<Contents>')) {
+        console.warn("[S3] No <Contents> found in response, checking structure...");
+        console.log("[S3] Response contains: ListBucketResult=", xmlText.includes('ListBucketResult'));
+        console.log("[S3] Response contains: Name=", xmlText.includes('<Name>'));
+        console.log("[S3] Response contains: Contents=", xmlText.includes('Contents'));
+      }
+      
       // 解析 Contents（文件） - 不依赖字段顺序
       const contentsRegex = /<Contents>[\s\S]*?<\/Contents>/g;
       let match;
+      let contentsMatches = [];
       
       while ((match = contentsRegex.exec(xmlText)) !== null) {
-        const contentBlock = match[0];
-        
+        contentsMatches.push(match[0]);
+      }
+      
+      console.log("[S3] Found", contentsMatches.length, "<Contents> blocks");
+      if (contentsMatches.length > 0) {
+        console.log("[S3] First Contents block:", contentsMatches[0].substring(0, 300));
+      }
+      
+      for (const contentBlock of contentsMatches) {
         // 从内容块中提取各个字段
         const keyMatch = /<Key>([\s\S]*?)<\/Key>/.exec(contentBlock);
         const sizeMatch = /<Size>([\d]+)<\/Size>/.exec(contentBlock);
@@ -179,11 +211,15 @@ export class S3Client {
             },
             customMetadata: {},
           });
+        } else {
+          console.warn("[S3] Failed to extract key/size from Contents block:", contentBlock.substring(0, 200));
         }
       }
       
       console.log("[S3] Parsed objects:", objects.length);
-      console.log("[S3] Sample objects:", objects.slice(0, 3));
+      if (objects.length > 0) {
+        console.log("[S3] Sample objects:", objects.slice(0, 3));
+      }
       
       // 解析 CommonPrefixes（文件夹）
       const prefixRegex = /<CommonPrefixes>[\s\S]*?<Prefix>([\s\S]*?)<\/Prefix>[\s\S]*?<\/CommonPrefixes>/g;

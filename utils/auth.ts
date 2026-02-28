@@ -204,9 +204,10 @@ export function get_list_auth_status(context, path = "") {
             }
         }
         console.log('get_list_auth_status - no matching guest permissions for non-root path');
+        return { hasAccess: false, isGuest: true };
     } else {
-        console.log('get_list_auth_status - no GUEST env var');
+        console.log('get_list_auth_status - no GUEST env var, allowing all guest access');
+        // 如果没有设置 GUEST 权限，允许游客访问所有内容
+        return { hasAccess: true, isGuest: true };
     }
-
-    return { hasAccess: false, isGuest: true };
 }

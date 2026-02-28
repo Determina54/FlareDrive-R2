@@ -67,6 +67,10 @@ export async function onRequestPost(context) {
   if (url.searchParams.has("test-list")) {
     return testS3List(context);
   }
+
+  if (url.searchParams.has("raw-list")) {
+    return rawS3List(context);
+  }
   
   return new Response("Not found", { status: 404 });
 }
@@ -421,6 +425,77 @@ async function testS3List(context) {
       status: "error",
       message: error.message || error.toString(),
       type: error.constructor.name
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
+    });
+  }
+}
+
+async function rawS3List(context) {
+  const storageConfig = getStorageConfig(context);
+  
+  if (!storageConfig.isCustomS3) {
+    return new Response(JSON.stringify({
+      status: "error",
+      message: "Not using custom S3"
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
+    });
+  }
+
+  const { endpoint, bucketName, accessKey, secretKey } = storageConfig;
+  
+  if (!endpoint || !bucketName || !accessKey || !secretKey) {
+    return new Response(JSON.stringify({
+      status: "error",
+      message: "Missing S3 configuration"
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
+    });
+  }
+
+  try {
+    console.log("[Raw S3 List] Getting raw XML", { endpoint, bucketName });
+    
+    const client = new S3Client(accessKey, secretKey);
+    
+    // 直接获取原始 S3 响应而不解析
+    const url = `${endpoint}/${bucketName}/?delimiter=/`;
+    const response = await client.s3_fetch(url);
+    const xmlText = await response.text();
+    
+    console.log("[Raw S3 List] Status:", response.status);
+    console.log("[Raw S3 List] XML:", xmlText);
+    
+    return new Response(JSON.stringify({
+      status: response.status.toString(),
+      url,
+      contentType: response.headers.get('content-type'),
+      xml: xmlText
+    }), {
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
+    });
+  } catch (error: any) {
+    console.error("[Raw S3 List] Error", error);
+    return new Response(JSON.stringify({
+      status: "error",
+      message: error.message || error.toString(),
+      stack: error.stack?.split('\n').slice(0, 5)
     }), {
       status: 500,
       headers: { "Content-Type": "application/json" ,
