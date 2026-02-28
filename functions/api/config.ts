@@ -57,12 +57,15 @@ export async function onRequestPost(context) {
   if (url.searchParams.has("test-upload")) {
     return testS3Upload(context);
   }
+
+  if (url.searchParams.has("test-list")) {
+    return testS3List(context);
+  }
   
   return new Response("Not found", { status: 404 });
 }
 
-async function testS3Upload(context) {
-  const storageConfig = getStorageConfig(context);
+async function testS3Connection(context) {
   
   if (!storageConfig.isCustomS3) {
     return new Response(JSON.stringify({
@@ -159,6 +162,8 @@ async function testS3Upload(context) {
     });
   }
 }
+
+async function rawS3Request(context) {
   const storageConfig = getStorageConfig(context);
   
   if (!storageConfig.isCustomS3) {
@@ -282,6 +287,81 @@ async function testS3Connection(context) {
     });
   } catch (error: any) {
     console.error("[S3 Test] Error", error);
+    return new Response(JSON.stringify({
+      status: "error",
+      message: error.message || error.toString(),
+      type: error.constructor.name
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+}
+
+async function testS3List(context) {
+  const storageConfig = getStorageConfig(context);
+  
+  if (!storageConfig.isCustomS3) {
+    return new Response(JSON.stringify({
+      status: "error",
+      message: "Not using custom S3"
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  const { endpoint, bucketName, accessKey, secretKey } = storageConfig;
+  
+  if (!endpoint || !bucketName || !accessKey || !secretKey) {
+    return new Response(JSON.stringify({
+      status: "error",
+      message: "Missing S3 configuration"
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  try {
+    console.log("[S3 List Test] Testing list", { endpoint, bucketName });
+    
+    const client = new S3Client(accessKey, secretKey);
+    
+    // 列出根目录
+    const result = await client.listBucket(endpoint, bucketName, "", "/");
+    console.log("[S3 List Test] Root list result:", result);
+    
+    // 如果有 public 目录，列出 public 目录下的文件
+    let publicResult = null;
+    if (result.delimitedPrefixes.includes("public/")) {
+      publicResult = await client.listBucket(endpoint, bucketName, "public/", "/");
+      console.log("[S3 List Test] Public folder result:", publicResult);
+    }
+    
+    return new Response(JSON.stringify({
+      status: "success",
+      root: {
+        objects: result.objects.slice(0, 10),
+        prefixes: result.delimitedPrefixes,
+        total: {
+          objects: result.objects.length,
+          prefixes: result.delimitedPrefixes.length,
+        }
+      },
+      public: publicResult ? {
+        objects: publicResult.objects.slice(0, 10),
+        prefixes: publicResult.delimitedPrefixes,
+        total: {
+          objects: publicResult.objects.length,
+          prefixes: publicResult.delimitedPrefixes.length,
+        }
+      } : null
+    }), {
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (error: any) {
+    console.error("[S3 List Test] Error", error);
     return new Response(JSON.stringify({
       status: "error",
       message: error.message || error.toString(),

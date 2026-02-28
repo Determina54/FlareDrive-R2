@@ -70,6 +70,12 @@ export async function onRequestGet(context) {
         return { key, size, uploaded, httpMetadata, customMetadata };
       });
 
+    console.log("[Children API] Filtered objects", { 
+      totalFromStorage: objList.objects.length,
+      afterFilter: objKeys.length,
+      samples: objKeys.slice(0, 3)
+    });
+
     let folders = objList.delimitedPrefixes;
     if (!path)
       folders = folders.filter((folder) => folder !== "_$flaredrive$/");

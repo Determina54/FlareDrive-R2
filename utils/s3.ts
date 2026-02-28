@@ -164,6 +164,11 @@ export class S3Client {
           key: match[1],
           size: parseInt(match[2]),
           uploaded: new Date(match[3]),
+          // 与 R2 API 兼容，添加空的元数据对象
+          httpMetadata: {
+            contentType: "application/octet-stream",
+          },
+          customMetadata: {},
         });
       }
       
