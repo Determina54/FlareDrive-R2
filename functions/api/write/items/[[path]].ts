@@ -1,5 +1,41 @@
 import { notFound, parseBucketPath, getStorageConfig } from "@/utils/bucket";
 import {get_auth_status} from "@/utils/auth";
+import { S3Client } from "@/utils/s3";
+
+async function handleCustomS3Request(context, method) {
+  const { request, env, params } = context;
+  const storageConfig = getStorageConfig(context);
+  
+  console.log("[Items S3] Handling", { method, params });
+  
+  // 构建 S3 URL
+  const path = (params.path || []).join('/');
+  const url = new URL(request.url);
+  const queryString = url.search;
+  
+  const accessKey = storageConfig.accessKey;
+  const secretKey = storageConfig.secretKey;
+  const endpoint = storageConfig.endpoint;
+  const bucketName = storageConfig.bucketName;
+  
+  const s3Url = `${endpoint}/${bucketName}/${path}${queryString}`;
+  
+  console.log("[Items S3] S3 URL:", s3Url);
+  console.log("[Items S3] Method:", method);
+  
+  const client = new S3Client(accessKey, secretKey);
+  
+  try {
+    return await client.s3_fetch(s3Url, {
+      method: method,
+      body: request.body,
+      headers: request.headers,
+    });
+  } catch (error) {
+    console.error("[Items S3] Error:", error);
+    return new Response(error.toString(), { status: 500 });
+  }
+}
 
 export async function onRequestPostCreateMultipart(context) {
   const [bucket, path] = parseBucketPath(context);
@@ -50,15 +86,9 @@ export async function onRequestPostCompleteMultipart(context) {
 export async function onRequestPost(context) {
   const storageConfig = getStorageConfig(context);
   
-  // 如果使用第三方 S3，转发到 S3 API
+  // 如果使用第三方 S3，转发处理
   if (storageConfig.isCustomS3) {
-    const url = new URL(context.request.url);
-    const s3Url = url.href.replace(/\/api\/write\/items\//, `/api/write/s3/`);
-    return fetch(s3Url, {
-      method: context.request.method,
-      body: context.request.body,
-      headers: context.request.headers,
-    });
+    return handleCustomS3Request(context, "POST");
   }
 
   const url = new URL(context.request.url);
@@ -104,15 +134,9 @@ export async function onRequestPutMultipart(context) {
 export async function onRequestPut(context) {
   const storageConfig = getStorageConfig(context);
   
-  // 如果使用第三方 S3，转发到 S3 API
+  // 如果使用第三方 S3，转发处理
   if (storageConfig.isCustomS3) {
-    const url = new URL(context.request.url);
-    const s3Url = url.href.replace(/\/api\/write\/items\//, `/api/write/s3/`);
-    return fetch(s3Url, {
-      method: context.request.method,
-      body: context.request.body,
-      headers: context.request.headers,
-    });
+    return handleCustomS3Request(context, "PUT");
   }
 
   if(!get_auth_status(context)){
@@ -160,15 +184,9 @@ export async function onRequestPut(context) {
 export async function onRequestHead(context) {
   const storageConfig = getStorageConfig(context);
   
-  // 如果使用第三方 S3，转发到 S3 API
+  // 如果使用第三方 S3，转发处理
   if (storageConfig.isCustomS3) {
-    const url = new URL(context.request.url);
-    const s3Url = url.href.replace(/\/api\/write\/items\//, `/api/write/s3/`);
-    return fetch(s3Url, {
-      method: context.request.method,
-      body: context.request.body,
-      headers: context.request.headers,
-    });
+    return handleCustomS3Request(context, "HEAD");
   }
 
   // HEAD请求用于检查写入权限，不实际执行操作
@@ -189,15 +207,9 @@ export async function onRequestHead(context) {
 export async function onRequestDelete(context) {
   const storageConfig = getStorageConfig(context);
   
-  // 如果使用第三方 S3，转发到 S3 API
+  // 如果使用第三方 S3，转发处理
   if (storageConfig.isCustomS3) {
-    const url = new URL(context.request.url);
-    const s3Url = url.href.replace(/\/api\/write\/items\//, `/api/write/s3/`);
-    return fetch(s3Url, {
-      method: context.request.method,
-      body: context.request.body,
-      headers: context.request.headers,
-    });
+    return handleCustomS3Request(context, "DELETE");
   }
 
   if(!get_auth_status(context)){
