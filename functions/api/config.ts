@@ -75,6 +75,10 @@ export async function onRequestPost(context) {
   if (url.searchParams.has("list-all")) {
     return listAllObjects(context);
   }
+
+  if (url.searchParams.has("list-public")) {
+    return listPublicContents(context);
+  }
   
   return new Response("Not found", { status: 404 });
 }
@@ -586,6 +590,89 @@ async function listAllObjects(context) {
     });
   } catch (error: any) {
     console.error("[List All] Error", error);
+    return new Response(JSON.stringify({
+      status: "error",
+      message: error.message || error.toString(),
+      stack: error.stack?.split('\n').slice(0, 5)
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
+    });
+  }
+}
+
+async function listPublicContents(context) {
+  const storageConfig = getStorageConfig(context);
+  
+  if (!storageConfig.isCustomS3) {
+    return new Response(JSON.stringify({
+      status: "error",
+      message: "Not using custom S3"
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
+    });
+  }
+
+  const { endpoint, bucketName, accessKey, secretKey } = storageConfig;
+  
+  if (!endpoint || !bucketName || !accessKey || !secretKey) {
+    return new Response(JSON.stringify({
+      status: "error",
+      message: "Missing S3 configuration"
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
+    });
+  }
+
+  try {
+    console.log("[List Public] Testing listBucket with public prefix");
+    
+    const client = new S3Client(accessKey, secretKey);
+    
+    // 直接获取原始 S3 响应，模拟 listBucket 的请求
+    const params = new URLSearchParams();
+    params.append("prefix", "public/");
+    params.append("delimiter", "/");
+    const url = `${endpoint}/${bucketName}/?${params.toString()}`;
+    
+    console.log("[List Public] Making request to:", url);
+    
+    const response = await client.s3_fetch(url);
+    const xmlText = await response.text();
+    
+    // 也使用 listBucket 函数，看看它返回什么
+    const result = await client.listBucket(endpoint, bucketName, "public", "/");
+    
+    console.log("[List Public] Result from listBucket:", result);
+    
+    return new Response(JSON.stringify({
+      status: "success",
+      request: {
+        url,
+        method: "GET"
+      },
+      rawXml: xmlText,
+      parsedResult: result,
+      message: "Files in public directory"
+    }), {
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
+    });
+  } catch (error: any) {
+    console.error("[List Public] Error", error);
     return new Response(JSON.stringify({
       status: "error",
       message: error.message || error.toString(),

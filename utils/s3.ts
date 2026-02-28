@@ -174,10 +174,7 @@ export class S3Client {
       
       // 检查 XML 是否包含 Contents 标签
       if (!xmlText.includes('<Contents>')) {
-        console.warn("[S3] No <Contents> found in response, checking structure...");
-        console.log("[S3] Response contains: ListBucketResult=", xmlText.includes('ListBucketResult'));
-        console.log("[S3] Response contains: Name=", xmlText.includes('<Name>'));
-        console.log("[S3] Response contains: Contents=", xmlText.includes('Contents'));
+        console.warn("[S3] No <Contents> found in response");
       }
       
       // 解析 Contents（文件） - 不依赖字段顺序
@@ -190,9 +187,6 @@ export class S3Client {
       }
       
       console.log("[S3] Found", contentsMatches.length, "<Contents> blocks");
-      if (contentsMatches.length > 0) {
-        console.log("[S3] First Contents block:", contentsMatches[0].substring(0, 300));
-      }
       
       for (const contentBlock of contentsMatches) {
         // 从内容块中提取各个字段
@@ -201,6 +195,7 @@ export class S3Client {
         const lastModifiedMatch = /<LastModified>([\s\S]*?)<\/LastModified>/.exec(contentBlock);
         
         if (keyMatch && sizeMatch) {
+          console.log("[S3] Adding object:", keyMatch[1]);
           objects.push({
             key: keyMatch[1],
             size: parseInt(sizeMatch[1]),
