@@ -65,9 +65,8 @@ export async function onRequestPost(context) {
   return new Response("Not found", { status: 404 });
 }
 
-async function testS3Connection(context) {
-  
-  if (!storageConfig.isCustomS3) {
+async function testS3Upload(context) {
+  const storageConfig = getStorageConfig(context);
     return new Response(JSON.stringify({
       status: "error",
       message: "Not using custom S3"
