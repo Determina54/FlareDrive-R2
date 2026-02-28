@@ -67,6 +67,8 @@ export async function onRequestPost(context) {
 
 async function testS3Upload(context) {
   const storageConfig = getStorageConfig(context);
+  
+  if (!storageConfig.isCustomS3) {
     return new Response(JSON.stringify({
       status: "error",
       message: "Not using custom S3"
