@@ -21,11 +21,13 @@ export class S3Client {
   accessKeyId: string;
   secretAccessKey: string;
   region: string;
+  useVirtualHost: boolean;
 
-  constructor(accessKeyId: string, secretAccessKey: string, region?: string) {
+  constructor(accessKeyId: string, secretAccessKey: string, region?: string, useVirtualHost?: boolean) {
     this.accessKeyId = accessKeyId;
     this.secretAccessKey = secretAccessKey;
     this.region = region || "auto";
+    this.useVirtualHost = useVirtualHost ?? false;
   }
 
   public async s3_fetch(input: string, init?: RequestInit) {
@@ -104,37 +106,61 @@ export class S3Client {
 
   public async listBucket(endpoint: string, bucketName: string, prefix?: string, delimiter?: string) {
     const params = new URLSearchParams();
-    if (prefix) params.append("prefix", prefix);
+    if (prefix && prefix.trim()) params.append("prefix", prefix);
     if (delimiter) params.append("delimiter", delimiter);
     
-    const url = `${endpoint}/${bucketName}/${params.toString() ? "?" + params.toString() : ""}`;
-    const response = await this.s3_fetch(url);
-    const xmlText = await response.text();
+    // 构造正确的 S3 URL
+    const queryString = params.toString();
+    const url = queryString 
+      ? `${endpoint}/${bucketName}/?${queryString}`
+      : `${endpoint}/${bucketName}/`;
     
-    // 简单的 XML 解析
-    const objects: any[] = [];
-    const delimitedPrefixes: string[] = [];
+    console.log("[S3] Listing bucket:", { endpoint, bucketName, prefix, delimiter, url });
     
-    // 解析 Contents（文件）
-    const contentsRegex = /<Contents>[\s\S]*?<Key>([\s\S]*?)<\/Key>[\s\S]*?<Size>(\d+)<\/Size>[\s\S]*?<LastModified>([\s\S]*?)<\/LastModified>[\s\S]*?<\/Contents>/g;
-    let match;
-    while ((match = contentsRegex.exec(xmlText)) !== null) {
-      objects.push({
-        key: match[1],
-        size: parseInt(match[2]),
-        uploaded: new Date(match[3]),
-      });
+    try {
+      const response = await this.s3_fetch(url);
+      const xmlText = await response.text();
+      
+      console.log("[S3] Response status:", response.status);
+      console.log("[S3] Response text:", xmlText.substring(0, 500));
+      
+      if (response.status !== 200) {
+        console.error("[S3] Error response:", xmlText);
+        return { objects: [], delimitedPrefixes: [] };
+      }
+      
+      // 简单的 XML 解析
+      const objects: any[] = [];
+      const delimitedPrefixes: string[] = [];
+      
+      // 解析 Contents（文件）
+      const contentsRegex = /<Contents>[\s\S]*?<Key>([\s\S]*?)<\/Key>[\s\S]*?<Size>([\d]+)<\/Size>[\s\S]*?<LastModified>([\s\S]*?)<\/LastModified>[\s\S]*?<\/Contents>/g;
+      let match;
+      while ((match = contentsRegex.exec(xmlText)) !== null) {
+        objects.push({
+          key: match[1],
+          size: parseInt(match[2]),
+          uploaded: new Date(match[3]),
+        });
+      }
+      
+      console.log("[S3] Parsed objects:", objects.length);
+      
+      // 解析 CommonPrefixes（文件夹）
+      const prefixRegex = /<CommonPrefixes>[\s\S]*?<Prefix>([\s\S]*?)<\/Prefix>[\s\S]*?<\/CommonPrefixes>/g;
+      while ((match = prefixRegex.exec(xmlText)) !== null) {
+        delimitedPrefixes.push(match[1]);
+      }
+      
+      console.log("[S3] Parsed prefixes:", delimitedPrefixes.length);
+      
+      return {
+        objects,
+        delimitedPrefixes,
+      };
+    } catch (error) {
+      console.error("[S3] Error listing bucket:", error);
+      return { objects: [], delimitedPrefixes: [] };
     }
-    
-    // 解析 CommonPrefixes（文件夹）
-    const prefixRegex = /<CommonPrefixes>[\s\S]*?<Prefix>([\s\S]*?)<\/Prefix>[\s\S]*?<\/CommonPrefixes>/g;
-    while ((match = prefixRegex.exec(xmlText)) !== null) {
-      delimitedPrefixes.push(match[1]);
-    }
-    
-    return {
-      objects,
-      delimitedPrefixes,
-    };
   }
 }

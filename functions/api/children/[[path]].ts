@@ -8,6 +8,8 @@ export async function onRequestGet(context) {
     const prefix = path && `${path}/`;
     const storageConfig = getStorageConfig(context);
     
+    console.log("[Children API] Request", { isCustomS3: storageConfig.isCustomS3, path, prefix });
+    
     if (!storageConfig.isCustomS3 && (!bucket || prefix.startsWith("_$flaredrive$/"))) {
       return notFound();
     }
@@ -32,10 +34,28 @@ export async function onRequestGet(context) {
     
     if (storageConfig.isCustomS3) {
       // 使用第三方 S3
+      console.log("[Children API] Using custom S3", { 
+        endpoint: storageConfig.endpoint, 
+        bucketName: storageConfig.bucketName 
+      });
+      
+      if (!storageConfig.endpoint || !storageConfig.bucketName || !storageConfig.accessKey || !storageConfig.secretKey) {
+        console.error("[Children API] Missing S3 configuration", storageConfig);
+        return new Response(JSON.stringify({
+          error: "S3 configuration incomplete",
+          details: storageConfig
+        }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      
       const client = new S3Client(storageConfig.accessKey, storageConfig.secretKey);
-      objList = await client.listBucket(storageConfig.endpoint, storageConfig.bucketName, prefix, "/");
+      objList = await client.listBucket(storageConfig.endpoint, storageConfig.bucketName, prefix || "", "/");
+      console.log("[Children API] S3 list result", objList);
     } else {
       // 使用 Cloudflare R2
+      console.log("[Children API] Using Cloudflare R2");
       objList = await bucket.list({
         prefix,
         delimiter: "/",
