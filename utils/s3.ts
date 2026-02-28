@@ -41,7 +41,30 @@ export class S3Client {
           encodeURIComponent(key) + "=" + encodeURIComponent(value)
       )
       .join("&");
-    const hashedPayload = "UNSIGNED-PAYLOAD";
+    
+    // 计算 payload hash
+    let hashedPayload = "UNSIGNED-PAYLOAD";
+    if (init.body) {
+      // 如果有 body，计算实际的 SHA-256 hash
+      let bodyBuffer: ArrayBuffer;
+      if (typeof init.body === "string") {
+        bodyBuffer = new TextEncoder().encode(init.body);
+      } else if (init.body instanceof ArrayBuffer) {
+        bodyBuffer = init.body;
+      } else if (init.body instanceof Uint8Array) {
+        bodyBuffer = init.body.buffer;
+      } else {
+        // 其他类型使用 UNSIGNED-PAYLOAD
+        hashedPayload = "UNSIGNED-PAYLOAD";
+        bodyBuffer = null;
+      }
+      
+      if (bodyBuffer) {
+        const hashBuffer = await crypto.subtle.digest("SHA-256", bodyBuffer);
+        hashedPayload = arrayBufferToHex(hashBuffer);
+      }
+    }
+    
     const headers = new Headers(init.headers);
     const datetime = new Date().toISOString().replace(/-|:|\.\d+/g, "");
     headers.set("x-amz-date", datetime);

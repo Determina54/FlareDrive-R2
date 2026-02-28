@@ -53,11 +53,112 @@ export async function onRequestPost(context) {
   if (url.searchParams.has("raw-s3")) {
     return rawS3Request(context);
   }
+
+  if (url.searchParams.has("test-upload")) {
+    return testS3Upload(context);
+  }
   
   return new Response("Not found", { status: 404 });
 }
 
-async function rawS3Request(context) {
+async function testS3Upload(context) {
+  const storageConfig = getStorageConfig(context);
+  
+  if (!storageConfig.isCustomS3) {
+    return new Response(JSON.stringify({
+      status: "error",
+      message: "Not using custom S3"
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  const { endpoint, bucketName, accessKey, secretKey } = storageConfig;
+  
+  if (!endpoint || !bucketName || !accessKey || !secretKey) {
+    return new Response(JSON.stringify({
+      status: "error",
+      message: "Missing S3 configuration"
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  try {
+    const testKey = `test-${Date.now()}.txt`;
+    const testContent = "Test upload from FlareDrive";
+    
+    console.log("[S3 Upload Test] Uploading test file", { endpoint, bucketName, testKey });
+    
+    const client = new S3Client(accessKey, secretKey);
+    const uploadUrl = `${endpoint}/${bucketName}/${testKey}`;
+    
+    console.log("[S3 Upload Test] Upload URL:", uploadUrl);
+    
+    const response = await client.s3_fetch(uploadUrl, {
+      method: "PUT",
+      body: testContent,
+      headers: {
+        "Content-Type": "text/plain",
+        "Content-Length": String(testContent.length),
+      }
+    });
+    
+    console.log("[S3 Upload Test] Upload response status:", response.status);
+    const responseText = await response.text();
+    console.log("[S3 Upload Test] Upload response body:", responseText);
+    
+    if (response.status === 200) {
+      // 上传成功，现在尝试列出来验证
+      const listResult = await client.listBucket(endpoint, bucketName, "", "/");
+      
+      const uploadedObj = listResult.objects.find(o => o.key === testKey);
+      
+      return new Response(JSON.stringify({
+        status: "success",
+        message: "Upload successful",
+        testKey,
+        uploadUrl,
+        uploadResponse: {
+          status: response.status,
+          statusText: response.statusText,
+        },
+        verification: {
+          canList: uploadedObj !== undefined,
+          object: uploadedObj || "Not found in list"
+        }
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    } else {
+      return new Response(JSON.stringify({
+        status: "error",
+        message: "Upload failed",
+        uploadUrl,
+        response: {
+          status: response.status,
+          statusText: response.statusText,
+          body: responseText,
+        }
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  } catch (error: any) {
+    console.error("[S3 Upload Test] Error", error);
+    return new Response(JSON.stringify({
+      status: "error",
+      message: error.message || error.toString(),
+      type: error.constructor.name
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+}
   const storageConfig = getStorageConfig(context);
   
   if (!storageConfig.isCustomS3) {
