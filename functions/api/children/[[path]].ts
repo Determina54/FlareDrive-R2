@@ -1,4 +1,4 @@
-import { notFound, parseBucketPath, getStorageConfig } from "@/utils/bucket";
+import { notFound, parseBucketPath, getStorageConfig, jsonResponse } from "@/utils/bucket";
 import { get_list_auth_status } from "@/utils/auth";
 import { S3Client } from "@/utils/s3";
 
@@ -19,15 +19,10 @@ export async function onRequestGet(context) {
 
     if (!authResult.hasAccess) {
       // 没有权限访问，返回需要登录的响应（不包含WWW-Authenticate头，避免弹出浏览器登录框）
-      return new Response(JSON.stringify({
+      return jsonResponse({
         needLogin: true,
         message: "需要登录才能查看文件列表"
-      }), {
-        status: 200, // 改为200状态码，避免触发浏览器登录框
-        headers: {
-          "Content-Type": "application/json"
-        },
-      });
+      }, 200);
     }
 
     let objList;
@@ -41,13 +36,10 @@ export async function onRequestGet(context) {
       
       if (!storageConfig.endpoint || !storageConfig.bucketName || !storageConfig.accessKey || !storageConfig.secretKey) {
         console.error("[Children API] Missing S3 configuration", storageConfig);
-        return new Response(JSON.stringify({
+        return jsonResponse({
           error: "S3 configuration incomplete",
           details: storageConfig
-        }), {
-          status: 500,
-          headers: { "Content-Type": "application/json" }
-        });
+        }, 500);
       }
       
       const client = new S3Client(storageConfig.accessKey, storageConfig.secretKey);
@@ -145,14 +137,12 @@ export async function onRequestGet(context) {
       }
     }
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       value: objKeys,
       folders,
       isGuest: authResult.isGuest
-    }), {
-      headers: { "Content-Type": "application/json" },
     });
   } catch (e) {
-    return new Response(e.toString(), { status: 500 });
+    return jsonResponse({ error: e.toString() }, 500);
   }
 }

@@ -18,7 +18,10 @@ export async function onRequestGet(context) {
   return new Response(JSON.stringify(config), {
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=300' // 缓存5分钟
+      'Cache-Control': 'public, max-age=300', // 缓存5分钟
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, HEAD',
+      'Access-Control-Allow-Headers': '*'
     }
   });
 }
@@ -39,7 +42,10 @@ async function diagnoseStorage(context) {
       secretKey: context.env.AWS_SECRET_ACCESS_KEY ? "✓ set" : "✗ not set",
     }
   }), {
-    headers: { "Content-Type": "application/json" }
+    headers: { "Content-Type": "application/json" ,
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+    "Access-Control-Allow-Headers": "*"}
   });
 }
 
@@ -74,7 +80,10 @@ async function testS3Upload(context) {
       message: "Not using custom S3"
     }), {
       status: 400,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 
@@ -86,7 +95,10 @@ async function testS3Upload(context) {
       message: "Missing S3 configuration"
     }), {
       status: 400,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 
@@ -134,7 +146,10 @@ async function testS3Upload(context) {
           object: uploadedObj || "Not found in list"
         }
       }), {
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
       });
     } else {
       return new Response(JSON.stringify({
@@ -148,7 +163,10 @@ async function testS3Upload(context) {
         }
       }), {
         status: 500,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
       });
     }
   } catch (error: any) {
@@ -159,7 +177,10 @@ async function testS3Upload(context) {
       type: error.constructor.name
     }), {
       status: 500,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 }
@@ -173,7 +194,10 @@ async function rawS3Request(context) {
       message: "Not using custom S3"
     }), {
       status: 400,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 
@@ -185,7 +209,10 @@ async function rawS3Request(context) {
       message: "Missing S3 configuration"
     }), {
       status: 400,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 
@@ -217,7 +244,10 @@ async function rawS3Request(context) {
         body: text,
       }
     }), {
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   } catch (error: any) {
     console.error("[S3 Raw] Error", error);
@@ -228,7 +258,10 @@ async function rawS3Request(context) {
       stack: error.stack?.split('\n').slice(0, 5)
     }), {
       status: 500,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 }
@@ -242,7 +275,10 @@ async function testS3Connection(context) {
       message: "Not using custom S3"
     }), {
       status: 400,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 
@@ -260,7 +296,10 @@ async function testS3Connection(context) {
       }
     }), {
       status: 400,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 
@@ -284,7 +323,10 @@ async function testS3Connection(context) {
         }
       }
     }), {
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   } catch (error: any) {
     console.error("[S3 Test] Error", error);
@@ -294,7 +336,10 @@ async function testS3Connection(context) {
       type: error.constructor.name
     }), {
       status: 500,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 }
@@ -308,7 +353,10 @@ async function testS3List(context) {
       message: "Not using custom S3"
     }), {
       status: 400,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 
@@ -320,7 +368,10 @@ async function testS3List(context) {
       message: "Missing S3 configuration"
     }), {
       status: 400,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 
@@ -359,7 +410,10 @@ async function testS3List(context) {
         }
       } : null
     }), {
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   } catch (error: any) {
     console.error("[S3 List Test] Error", error);
@@ -369,7 +423,10 @@ async function testS3List(context) {
       type: error.constructor.name
     }), {
       status: 500,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" ,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+      "Access-Control-Allow-Headers": "*"}
     });
   }
 }

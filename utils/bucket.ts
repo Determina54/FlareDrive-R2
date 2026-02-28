@@ -1,5 +1,25 @@
 export function notFound() {
-  return new Response("Not found", { status: 404 });
+  return new Response("Not found", { 
+    status: 404,
+    headers: withCorsHeaders()
+  });
+}
+
+export function withCorsHeaders(headers?: HeadersInit): HeadersInit {
+  const baseHeaders = new Headers(headers);
+  baseHeaders.set("Access-Control-Allow-Origin", "*");
+  baseHeaders.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD");
+  baseHeaders.set("Access-Control-Allow-Headers", "*");
+  return baseHeaders;
+}
+
+export function jsonResponse(data: any, status: number = 200, headers?: HeadersInit) {
+  const responseHeaders = new Headers(headers || {});
+  responseHeaders.set("Content-Type", "application/json");
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: withCorsHeaders(responseHeaders)
+  });
 }
 
 export function getStorageConfig(context) {

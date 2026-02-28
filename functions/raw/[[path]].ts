@@ -1,4 +1,4 @@
-import { notFound, parseBucketPath, getStorageConfig } from "@/utils/bucket";
+import { notFound, parseBucketPath, getStorageConfig, withCorsHeaders } from "@/utils/bucket";
 import { S3Client } from "@/utils/s3";
 
 export async function onRequestGet(context) {
@@ -38,8 +38,11 @@ export async function onRequestGet(context) {
         headers.set("Cache-Control", "max-age=31536000");
       }
       
+      // 添加 CORS 头
+      const corsHeaders = withCorsHeaders(headers);
+      
       return new Response(response.body, {
-        headers,
+        headers: corsHeaders,
         status: response.status,
         statusText: response.statusText
       });
